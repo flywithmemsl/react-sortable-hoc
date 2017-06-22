@@ -110,6 +110,10 @@ var DragLayer = function () {
         };
         this.offsetEdge = list.getEdgeOffset(node);
         this.initialOffset = offset;
+        this.distanceBetweenContainers = {
+          x: 0,
+          y: 0
+        };
 
         var fields = node.querySelectorAll('input, textarea, select');
         var clonedNode = node.cloneNode(true);
@@ -213,11 +217,16 @@ var DragLayer = function () {
 
       this.active = item;
       if (closest != this.currentList) {
+        this.distanceBetweenContainers = (0, _utils2.updateDistanceBetweenContainers)(this.distanceBetweenContainers, closest, this.currentList, {
+          width: this.width,
+          height: this.height
+        });
         this.currentList.handleSortEnd(e, closest);
         this.currentList = closest;
         this.currentList.manager.active = _extends({}, this.currentList.getClosestNode(e), { item: item });
+        // const activeNode = this.currentList.manager.getActive().node;
+        // this.offsetEdge = this.currentList.getEdgeOffset(activeNode);
         this.currentList.handlePress(e);
-        //console.log(this.currentList.active)
       }
     }
   }]);

@@ -1045,7 +1045,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if (typeof onSortEnd === 'function') {
 	          // get the index in the new list
 	          if (newList) {
-	            //this.manager.active = newList.getClosestNode(e);
 	            _this.newIndex = newList.getClosestNode(e).index;
 	          }
 
@@ -1093,7 +1092,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        });
 	        var index = (0, _utils2.closestRect)(p.x, p.y, closestNodes);
 	        var collection = closestCollections[index];
-	        if (!collection) {
+	        if (collection === undefined) {
 	          return {
 	            collection: collection,
 	            index: 0
@@ -1104,7 +1103,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	        });
 	        var finalIndex = finalNodes.indexOf(closestNodes[index]);
 	        var node = closestNodes[index];
-
 	        //TODO: add better support for grid
 	        var rect = node.getBoundingClientRect();
 	        return {
@@ -1183,8 +1181,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	            };
 	            _this.scrollContainer.scrollTop += offset.top;
 	            _this.scrollContainer.scrollLeft += offset.left;
-	            _this.dragLayer.translate.x += offset.left;
-	            _this.dragLayer.translate.y += offset.top;
+	            // this.dragLayer.translate.x += offset.left;
+	            // this.dragLayer.translate.y += offset.top;
 	            _this.animateNodes();
 	          }, 5);
 	        }
@@ -1340,6 +1338,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }, {
 	      key: 'animateNodes',
 	      value: function animateNodes() {
+	        if (!this.axis) return;
 	        var _props2 = this.props,
 	            transitionDuration = _props2.transitionDuration,
 	            hideSortableGhost = _props2.hideSortableGhost;
@@ -1349,10 +1348,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	          left: this.scrollContainer.scrollLeft - this.initialScroll.left,
 	          top: this.scrollContainer.scrollTop - this.initialScroll.top
 	        };
+
 	        var sortingOffset = {
-	          left: this.dragLayer.offsetEdge.left + this.dragLayer.translate.x + deltaScroll.left,
-	          top: this.dragLayer.offsetEdge.top + this.dragLayer.translate.y + deltaScroll.top
+	          left: this.dragLayer.offsetEdge.left - this.dragLayer.distanceBetweenContainers.x + this.dragLayer.translate.x + deltaScroll.left,
+	          top: this.dragLayer.offsetEdge.top - this.dragLayer.distanceBetweenContainers.y + this.dragLayer.translate.y + deltaScroll.top
 	        };
+
 	        this.newIndex = null;
 	        for (var i = 0, len = nodes.length; i < len; i++) {
 	          var node = nodes[i].node;
@@ -1404,10 +1405,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	          if (transitionDuration) {
 	            node.style[_utils.vendorPrefix + 'TransitionDuration'] = transitionDuration + 'ms';
 	          }
-
 	          if (this.axis.x) {
 	            if (this.axis.y) {
 	              // Calculations for a grid setup
+
 	              if (index < this.index && (sortingOffset.left - offset.width <= edgeOffset.left && sortingOffset.top <= edgeOffset.top + offset.height || sortingOffset.top + offset.height <= edgeOffset.top)) {
 	                // If the current node is to the left on the same row, or above the node that's being dragged
 	                // then move it to the right
@@ -1441,6 +1442,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	                this.newIndex = index;
 	              } else if (index < this.index && sortingOffset.left <= edgeOffset.left + offset.width) {
 	                translate.x = this.dragLayer.width + this.dragLayer.marginOffset.x;
+
 	                if (this.newIndex == null) {
 	                  this.newIndex = index;
 	                }
@@ -8271,6 +8273,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	        };
 	        this.offsetEdge = list.getEdgeOffset(node);
 	        this.initialOffset = offset;
+	        this.distanceBetweenContainers = {
+	          x: 0,
+	          y: 0
+	        };
 
 	        var fields = node.querySelectorAll('input, textarea, select');
 	        var clonedNode = node.cloneNode(true);
@@ -8374,11 +8380,16 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	      this.active = item;
 	      if (closest != this.currentList) {
+	        this.distanceBetweenContainers = (0, _utils2.updateDistanceBetweenContainers)(this.distanceBetweenContainers, closest, this.currentList, {
+	          width: this.width,
+	          height: this.height
+	        });
 	        this.currentList.handleSortEnd(e, closest);
 	        this.currentList = closest;
 	        this.currentList.manager.active = (0, _extends3.default)({}, this.currentList.getClosestNode(e), { item: item });
+	        // const activeNode = this.currentList.manager.getActive().node;
+	        // this.offsetEdge = this.currentList.getEdgeOffset(activeNode);
 	        this.currentList.handlePress(e);
-	        //console.log(this.currentList.active)
 	      }
 	    }
 	  }]);
@@ -8403,6 +8414,8 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	exports.distanceRect = distanceRect;
 	exports.closestRect = closestRect;
+	exports.getDelta = getDelta;
+	exports.updateDistanceBetweenContainers = updateDistanceBetweenContainers;
 
 	var _utils = __webpack_require__(2);
 
@@ -8420,6 +8433,42 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return distanceRect(x, y, c.getBoundingClientRect());
 	  });
 	  return distances.indexOf(Math.min.apply(Math, (0, _toConsumableArray3.default)(distances)));
+	}
+
+	function getDelta(rect1, rect2) {
+	  return {
+	    x: rect1.left - rect2.left,
+	    y: rect1.top - rect2.top
+	  };
+	}
+
+	// export function includeHelperDimensions(initial, delta, dimension) {
+	//
+	//   const res = initial + delta
+	//   console.log('should update? : ', initial, res)
+	//   if (initial >=0 && res < 0) {
+	//     console.log('first case: -', dimension, 'px')
+	//     return res - dimension/2
+	//   }
+	//   if (initial <0 && res >= 0) {
+	//     console.log('second case: +', dimension, 'px')
+	//     return res + dimension/2
+	//   }
+	//   return res
+	// }
+
+	function updateDistanceBetweenContainers(distance, container1, container2) {
+	  var x = distance.x,
+	      y = distance.y;
+
+	  var d = getDelta.apply(undefined, (0, _toConsumableArray3.default)([container1, container2].map(function (c) {
+	    return c.container.getBoundingClientRect();
+	  })));
+
+	  return {
+	    x: x + d.x,
+	    y: y + d.y
+	  };
 	}
 
 /***/ }),
